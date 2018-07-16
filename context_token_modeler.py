@@ -30,14 +30,8 @@ def read_files(filepath):
         #prep the next token in the file
         try:
             rawtoken = next(tokengenerator)
-            tokenlist = token_cleanup(rawtoken)            
-            if len(tokenlist) > 1:
-                #whenever there is punctuation, start the context list over
-                tokens = new_file(tokengenerator)
-                tokens.insert(0,tokenlist[0])
-            else:
-                #if there was only one item in the list (no punct.), add it and move on
-                tokens.append(tokenlist[0])
+            cleantoken = token_cleanup(rawtoken)            
+            tokens.append(cleantoken)
             if len(tokens) > 11:
                 tokens.pop(0)
         except StopIteration:
@@ -82,9 +76,9 @@ def new_file(tokengenerator):
     tokens = []
     for i in range(0, 6):
         rawtoken = next(tokengenerator)
-        tokenlist = token_cleanup(rawtoken)
+        cleantoken = token_cleanup(rawtoken)
         # NB: right now the code assumes that first sentence is > 5 words
-        tokens.append(tokenlist[0])
+        tokens.append(cleantoken)
     return tokens
 
 def token_cleanup(rawtoken):
@@ -93,12 +87,12 @@ def token_cleanup(rawtoken):
     rawtoken = jv.replace(rawtoken)
     rawtoken = rawtoken.lower()
     tokenlist = word_tokenizer.tokenize(rawtoken)
-    while len(tokenlist) > 1:
+    #while len(tokenlist) > 1:
         #sometimes the tokenizer finds punctuation.
         #when this happens, make sure all consecutive punctuation is gone.
         #NB: performs the same on quotes and all other punct, including commas.
-        tokenlist = word_tokenizer.tokenize(tokenlist[0])
-    return tokenlist
+     #   tokenlist = word_tokenizer.tokenize(tokenlist[0])
+    return tokenlist[0]
 
 word_tokenizer = WordTokenizer('latin')
 pp = PrettyPrinter(indent=4)
@@ -111,4 +105,16 @@ onlyfiles = [join(path, f) for f in onlyfiles]
 
 for filename in onlyfiles:
     print(filename)
-    read_files(filename)
+    if '.tess' in filename:
+        read_files(filename)
+
+
+'''With the context token counts complete, it's time to start associating lemmas 
+with their summary contextual dictionaries. That means finding all the possible 
+reflexes of a lemma, and then looking them up in SKIP_DICTIONARY.'''
+
+# find the inflected_forms on the left (keys), and associate them with the lemmas on the right (value lists)
+
+
+
+[k for k, lemma_list in SKIP_LIBRARY.items() if  in ]
