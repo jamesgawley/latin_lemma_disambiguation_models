@@ -12,19 +12,29 @@ from cltk.stem.latin.j_v import JVReplacer
 from tesserae.utils import TessFile
 
 SKIP_LIBRARY = dict()
+'''Large dictionary whose keys are inflected word forms and whose values are dictionaries.
+Second-layer dictionaries describe context of word forms in corpus through counts of 
+surrounding word-forms.'''
 
-def read_files(filepath):
-    '''Moves through a .tess file and calls the 'next' and 'skipgram' functions as needed.'''
+
+def read_files(filepath, context_window):
+    '''Moves through a .tess file and calls the 'next' and 'skipgram' functions as needed.
+    Updates the SKIP_LIBRARY global object.
+    Parameters
+    ----------
+    filepath: a file in .tess format
+    context_window: how many words on either side of the target to look at.
+    '''
     tessobj = TessFile(filepath)
     tokengenerator = iter(tessobj.read_tokens())
-    tokens = new_file(tokengenerator)
+    tokens = new_file(tokengenerator, context_window)
     stop = 0
     while stop != 1:
         #the target should be five away from the end of the file, until the end
-        target = len(tokens) - 6
-        targettoken = tokens[target]
+        target_position = len(tokens) - (context_window + 1)
+        targettoken = tokens[target_position]
         #grab all the other tokens but the target
-        contexttokens = [x for i, x in enumerate(tokens) if i != target]
+        contexttokens = [x for i, x in enumerate(tokens) if i != target_position]
         #add this context to the skipgram map
         skipgram(targettoken, contexttokens)
         #prep the next token in the file
@@ -32,24 +42,25 @@ def read_files(filepath):
             rawtoken = next(tokengenerator)
             cleantoken = token_cleanup(rawtoken)            
             tokens.append(cleantoken)
-            if len(tokens) > 11:
+            if len(tokens) > (context_window * 2 + 1):
                 tokens.pop(0)
         except StopIteration:
             #we have reached EOF. Loop through until the last token is done then quit
-            #when this happens, the token list should have 11 indices, and the 'target'
+            #when this happens, the token list should have 11 indices, and the 'target_position'
             #index will be the sixth (i.e. :tokens[5]). Pop the first index off, leaving 10
             #indices and making the sixth index (previously the seventh) the new target.
-            while len(tokens) > 5:
+            while len(tokens) > (context_window):
                 tokens.pop(0)
-                # as long as there are six or more indexes, make the target the sixth index.
-                if len(tokens) > 6:
-                    target = 5
-                # if there are exactly six indexes, then the target is the last index.
+                # This loop makes the target_position move to the end. E.g. if the context_window is 6, then
+                # as long as there are six or more indexes, make the target_position the sixth index.
+                if len(tokens) > (context_window + 1):
+                    target_position = (context_window)
+                # But if there six or fewer indexes, then the target_position is the last index.
                 else:
-                    target = len(tokens) - 1
-                targettoken = tokens[target]
+                    target_position = len(tokens) - 1
+                targettoken = tokens[target_position]
                 #grab all the other tokens but the target
-                contexttokens = [x for i, x in enumerate(tokens) if i != target]
+                contexttokens = [x for i, x in enumerate(tokens) if i != target_position]
                 #add this context to the skipgram map
                 skipgram(targettoken, contexttokens)
             stop = 1
@@ -70,11 +81,11 @@ def skipgram(targettoken, contexttokens):
     for contextword in contexttokens:
         SKIP_LIBRARY[targettoken][contextword] += 1
 
-def new_file(tokengenerator):
+def new_file(tokengenerator, context_window):
     '''Takes an iterator object for the file being read.
     Reads in the first six tokens and returns them'''
     tokens = []
-    for i in range(0, 6):
+    for i in range(0, (context_window + 1)):
         rawtoken = next(tokengenerator)
         cleantoken = token_cleanup(rawtoken)
         # NB: right now the code assumes that first sentence is > 5 words
@@ -106,7 +117,7 @@ onlyfiles = [join(path, f) for f in onlyfiles]
 for filename in onlyfiles:
     print(filename)
     if '.tess' in filename:
-        read_files(filename)
+        read_files(filename, context_window = 2)
 
 
 '''With the context token counts complete, it's time to start associating lemmas 
