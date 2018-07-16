@@ -10,6 +10,7 @@ from pprint import PrettyPrinter
 from cltk.tokenize.word import WordTokenizer
 from cltk.stem.latin.j_v import JVReplacer
 from tesserae.utils import TessFile
+from cltk.semantics.latin.lookup import Lemmata
 
 SKIP_LIBRARY = dict()
 '''Large dictionary whose keys are inflected word forms and whose values are dictionaries.
@@ -76,10 +77,14 @@ def skipgram(targettoken, contexttokens):
     incremented counts.
     '''
     global SKIP_LIBRARY
-    if targettoken not in SKIP_LIBRARY:
-        SKIP_LIBRARY[targettoken] = defaultdict(int)
-    for contextword in contexttokens:
-        SKIP_LIBRARY[targettoken][contextword] += 1
+    lemmatizer = Lemmata(dictionary = 'lemmata', language = 'latin')
+    lemmas = lemmatizer.lookup(targettoken)
+    lemmas = lemmatizer.isolate(lemmas)
+    for lemma in lemmas:
+        if lemma not in SKIP_LIBRARY:
+            SKIP_LIBRARY[lemma] = defaultdict(int)
+        for contextword in contexttokens:
+            SKIP_LIBRARY[lemma][contextword] += 1
 
 def new_file(tokengenerator, context_window):
     '''Takes an iterator object for the file being read.
@@ -124,8 +129,12 @@ for filename in onlyfiles:
 with their summary contextual dictionaries. That means finding all the possible 
 reflexes of a lemma, and then looking them up in SKIP_DICTIONARY.'''
 
-# find the inflected_forms on the left (keys), and associate them with the lemmas on the right (value lists)
+'''It should be possible to look up all the possible lemmas for each form, 
+then add or create dictionary entries for each lemma, and add the context info for that entry.
+Basically instead of building a dictionary whose keys are inflected forms, build a dictionary
+whose keys are lemmata. The contextual information for each lemma will be the info drawn from
+the inflected form in the corpus.'''
 
-
-
-[k for k, lemma_list in SKIP_LIBRARY.items() if  in ]
+'''Then, when the time comes to lemmatize a word, in ambiguous cases there will be two places to look.
+The context will be drawn from the word being lemmatized, and compared against the context found in
+the two cases.'''
