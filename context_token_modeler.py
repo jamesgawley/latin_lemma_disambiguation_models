@@ -66,7 +66,7 @@ def read_files(filepath, context_window):
                 skipgram(targettoken, contexttokens)
             stop = 1
 
-
+lemmatizer = Lemmata(dictionary = 'lemmata', language = 'latin')
 def skipgram(targettoken, contexttokens):
     '''Builds a complex data structure that will contain the 'average context'
     for each type in the corpus.
@@ -77,8 +77,7 @@ def skipgram(targettoken, contexttokens):
     incremented counts.
     '''
     global SKIP_LIBRARY
-    lemmatizer = Lemmata(dictionary = 'lemmata', language = 'latin')
-    lemmas = lemmatizer.lookup(targettoken)
+    lemmas = lemmatizer.lookup([targettoken])
     lemmas = lemmatizer.isolate(lemmas)
     for lemma in lemmas:
         if lemma not in SKIP_LIBRARY:
@@ -97,17 +96,12 @@ def new_file(tokengenerator, context_window):
         tokens.append(cleantoken)
     return tokens
 
+jv = JVReplacer()
+word_tokenizer = WordTokenizer('latin')
 def token_cleanup(rawtoken):
-    jv = JVReplacer()
-    word_tokenizer = WordTokenizer('latin')
     rawtoken = jv.replace(rawtoken)
     rawtoken = rawtoken.lower()
     tokenlist = word_tokenizer.tokenize(rawtoken)
-    #while len(tokenlist) > 1:
-        #sometimes the tokenizer finds punctuation.
-        #when this happens, make sure all consecutive punctuation is gone.
-        #NB: performs the same on quotes and all other punct, including commas.
-     #   tokenlist = word_tokenizer.tokenize(tokenlist[0])
     return tokenlist[0]
 
 word_tokenizer = WordTokenizer('latin')
@@ -116,7 +110,7 @@ pp = PrettyPrinter(indent=4)
 #open all the tesserae files
 relativepath = join('~/cleantess/tesserae/texts/la')
 path = expanduser(relativepath)
-onlyfiles = [f for f in listdir(path) if isfile(join(path, f))]
+onlyfiles = [f for f in listdir(path) if isfile(join(path, f)) and 'augustine' not in f and 'ambrose' not in f]
 onlyfiles = [join(path, f) for f in onlyfiles]
 
 for filename in onlyfiles:
@@ -124,17 +118,28 @@ for filename in onlyfiles:
     if '.tess' in filename:
         read_files(filename, context_window = 2)
 
+def compare_context(token, context):
+    '''Compares the number of shared words between a token's context and the contexts of its possible lemmas.'''
+    lemmas = lemmatizer.lookup(token)
+    lemmas = lemmatizer.isolate(lemmas)
+    if len(lemmas) > 1:
+        shared_context_counts = dict()
+        for lem in lemmas:
+            lemma_context_dictionary = SKIP_LIBRARY(lem)
+            lemma_context_words = lemma_context_dictionary.keys()
+            shared_context_counts[lem] = len(set(context).intersection())
+        total_shared = sum(shared_context_counts.values())
+        lemmalist = []
+        for lem in lemmas:
+            lemmaprob = shared_context_counts[lem] / total_shared
+            lemmaobj = (lem, lemmaprob)
+            lemmalist.append(lemmaobj)
+        return lemmalist
+    else:
+        return lemmatizer.lookup(token)
 
-'''With the context token counts complete, it's time to start associating lemmas 
-with their summary contextual dictionaries. That means finding all the possible 
-reflexes of a lemma, and then looking them up in SKIP_DICTIONARY.'''
-
-'''It should be possible to look up all the possible lemmas for each form, 
-then add or create dictionary entries for each lemma, and add the context info for that entry.
-Basically instead of building a dictionary whose keys are inflected forms, build a dictionary
-whose keys are lemmata. The contextual information for each lemma will be the info drawn from
-the inflected form in the corpus.'''
-
-'''Then, when the time comes to lemmatize a word, in ambiguous cases there will be two places to look.
-The context will be drawn from the word being lemmatized, and compared against the context found in
-the two cases.'''
+tessobj = TessFile(onlyfiles[389])
+tokengenerator = iter(tessobj.read_tokens())
+tokens = new_file(tokengenerator, 2)
+target = tokens.pop[0]
+compare_context(target, tokens)
