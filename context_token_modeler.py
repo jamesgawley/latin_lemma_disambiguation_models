@@ -118,16 +118,18 @@ for filename in onlyfiles:
     if '.tess' in filename:
         read_files(filename, context_window = 2)
 
-def compare_context(token, context):
+def compare_context(target, context):
     '''Compares the number of shared words between a token's context and the contexts of its possible lemmas.'''
-    lemmas = lemmatizer.lookup(token)
+    lemmas = lemmatizer.lookup(target)
     lemmas = lemmatizer.isolate(lemmas)
     if len(lemmas) > 1:
         shared_context_counts = dict()
         for lem in lemmas:
-            lemma_context_dictionary = SKIP_LIBRARY(lem)
+            lemma_context_dictionary = SKIP_LIBRARY[lem]
             lemma_context_words = lemma_context_dictionary.keys()
-            shared_context_counts[lem] = len(set(context).intersection())
+            counts = [lemma_context_dictionary[context_token] for context_token in set(context).intersection(lemma_context_words)]
+            shared_context_counts[lem] = sum(counts)
+            print(shared_context_counts[lem])
         total_shared = sum(shared_context_counts.values())
         lemmalist = []
         for lem in lemmas:
@@ -136,10 +138,10 @@ def compare_context(token, context):
             lemmalist.append(lemmaobj)
         return lemmalist
     else:
-        return lemmatizer.lookup(token)
+        return lemmatizer.lookup(target)
 
 tessobj = TessFile(onlyfiles[389])
 tokengenerator = iter(tessobj.read_tokens())
-tokens = new_file(tokengenerator, 2)
-target = tokens.pop[0]
+tokens = new_file(tokengenerator, 4)
+target = tokens.pop(1)
 compare_context(target, tokens)
