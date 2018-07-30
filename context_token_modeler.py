@@ -11,6 +11,8 @@ from cltk.tokenize.word import WordTokenizer
 from cltk.stem.latin.j_v import JVReplacer
 from tesserae.utils import TessFile
 from cltk.semantics.latin.lookup import Lemmata
+from operator import itemgetter
+from cltk.utils.file_operations import open_pickle
 
 SKIP_LIBRARY = dict()
 '''Large dictionary whose keys are inflected word forms and whose values are dictionaries.
@@ -110,7 +112,7 @@ pp = PrettyPrinter(indent=4)
 #open all the tesserae files
 relativepath = join('~/cleantess/tesserae/texts/la')
 path = expanduser(relativepath)
-onlyfiles = [f for f in listdir(path) if isfile(join(path, f)) and 'augustine' not in f and 'ambrose' not in f]
+onlyfiles = [f for f in listdir(path) if isfile(join(path, f)) and 'augustine' not in f and 'ambrose' not in f and 'jerome' not in f]
 onlyfiles = [join(path, f) for f in onlyfiles]
 
 for filename in onlyfiles:
@@ -120,14 +122,15 @@ for filename in onlyfiles:
 
 def compare_context(token, context):
     '''Compares the number of shared words between a token's context and the contexts of its possible lemmas.'''
-    lemmas = lemmatizer.lookup(token)
+    lemmas = lemmatizer.lookup([token])
     lemmas = lemmatizer.isolate(lemmas)
     if len(lemmas) > 1:
         shared_context_counts = dict()
         for lem in lemmas:
-            lemma_context_dictionary = SKIP_LIBRARY(lem)
+            lemma_context_dictionary = SKIP_LIBRARY['lem']
             lemma_context_words = lemma_context_dictionary.keys()
-            shared_context_counts[lem] = len(set(context).intersection())
+            shared_context_words = set(context).intersection(lemma_context_words)
+            shared_context_counts[lem] = sum([lemma_context_dictionary[l] for l in shared_context_words])
         total_shared = sum(shared_context_counts.values())
         lemmalist = []
         for lem in lemmas:
@@ -136,10 +139,60 @@ def compare_context(token, context):
             lemmalist.append(lemmaobj)
         return lemmalist
     else:
-        return lemmatizer.lookup(token)
+        return lemmatizer.lookup([token])
 
-tessobj = TessFile(onlyfiles[389])
+tessobj = TessFile(onlyfiles[258])
 tokengenerator = iter(tessobj.read_tokens())
 tokens = new_file(tokengenerator, 2)
-target = tokens.pop[0]
+target = tokens.pop(0)
 compare_context(target, tokens)
+
+
+rel_path = os.path.join('~/cltk_data/latin/model/latin_models_cltk/lemmata/backoff')
+path = os.path.expanduser(rel_path)
+latin_pos_lemmatized_sents_path = os.path.join(path, file)
+if os.path.isfile(latin_pos_lemmatized_sents_path):
+    latin_pos_lemmatized_sents = open_pickle(latin_pos_lemmatized_sents_path)
+else:
+    print('The file %s is not available in cltk_data' % file)
+
+
+
+first1000tokens = []
+for sentence in first1000:
+    for tup in sentence:
+        if 'punc' not in tup[1]:
+            first1000tokens.append(tup[0])
+
+first1000lemmas = []
+for sentence in first1000:
+    for tup in sentence:
+        if 'punc' not in tup[1]:
+            first1000lemmas.append(tup[1])
+
+
+
+def test_lemmatization(test_tokens, answer_lemma, window_size):
+    '''Takes a sequence of tokens from the corpus and lemmatizes them using compare_context.
+    Then checks against a set of 'gold standard' lemmatizations. Returns the incorrect answers.'''
+    current_token = 0
+    while current_token < len(test_tokens):
+        if current_token >= window_size and current_token <= len(test_tokens - window_size):
+            context = test_tokens[range((current_token - window_size),(current_token + window_size))]
+            target = context.pop(window_size)
+            lemmas = compare_context(target, context)
+            lemma = max(lemmas,key=itemgetter(1))
+            if lemma[0] = 
+
+
+
+
+
+
+
+
+
+
+
+
+
