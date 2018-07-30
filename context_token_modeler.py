@@ -120,17 +120,18 @@ for filename in onlyfiles:
     if '.tess' in filename:
         read_files(filename, context_window = 2)
 
-def compare_context(token, context):
+def compare_context(target, context):
     '''Compares the number of shared words between a token's context and the contexts of its possible lemmas.'''
     lemmas = lemmatizer.lookup([token])
     lemmas = lemmatizer.isolate(lemmas)
     if len(lemmas) > 1:
         shared_context_counts = dict()
         for lem in lemmas:
-            lemma_context_dictionary = SKIP_LIBRARY['lem']
+            lemma_context_dictionary = SKIP_LIBRARY[lem]
             lemma_context_words = lemma_context_dictionary.keys()
-            shared_context_words = set(context).intersection(lemma_context_words)
-            shared_context_counts[lem] = sum([lemma_context_dictionary[l] for l in shared_context_words])
+            counts = [lemma_context_dictionary[context_token] for context_token in set(context).intersection(lemma_context_words)]
+            shared_context_counts[lem] = sum(counts)
+            print(shared_context_counts[lem])
         total_shared = sum(shared_context_counts.values())
         lemmalist = []
         for lem in lemmas:
@@ -139,7 +140,7 @@ def compare_context(token, context):
             lemmalist.append(lemmaobj)
         return lemmalist
     else:
-        return lemmatizer.lookup([token])
+        return lemmatizer.lookup(target)
 
 tessobj = TessFile(onlyfiles[258])
 tokengenerator = iter(tessobj.read_tokens())
@@ -156,8 +157,6 @@ if os.path.isfile(latin_pos_lemmatized_sents_path):
 else:
     print('The file %s is not available in cltk_data' % file)
 
-
-
 first1000tokens = []
 for sentence in first1000:
     for tup in sentence:
@@ -170,8 +169,6 @@ for sentence in first1000:
         if 'punc' not in tup[1]:
             first1000lemmas.append(tup[1])
 
-
-
 def test_lemmatization(test_tokens, answer_lemma, window_size):
     '''Takes a sequence of tokens from the corpus and lemmatizes them using compare_context.
     Then checks against a set of 'gold standard' lemmatizations. Returns the incorrect answers.'''
@@ -183,16 +180,3 @@ def test_lemmatization(test_tokens, answer_lemma, window_size):
             lemmas = compare_context(target, context)
             lemma = max(lemmas,key=itemgetter(1))
             if lemma[0] = 
-
-
-
-
-
-
-
-
-
-
-
-
-
