@@ -2,6 +2,7 @@
 
 from os import listdir
 from os.path import isfile, join, expanduser
+import os
 from collections import defaultdict
 from pprint import PrettyPrinter
 from cltk.tokenize.word import WordTokenizer
@@ -12,14 +13,26 @@ from operator import itemgetter
 from cltk.utils.file_operations import open_pickle
 from difflib import SequenceMatcher
 import pickle
+from random import randint
 
+SKIP_LIBRARY = pickle.load( open( "skip_library_1_no_sentence_boundaries.pickle", "rb" ) )
 
-
-def compare_context(target, context):
+def compare_context(target, context, control = 0):
     '''Compares the number of shared words between a token's context and the contexts of its possible lemmas.'''
     lemmas = lemmatizer.lookup([target])
     lemmas = lemmatizer.isolate(lemmas)
     if len(lemmas) > 1:
+        if control == 1:
+            lemmalist = []
+            choice = randint(0, (len(lemmas) - 1))
+            lemmaobj = (lemmas[choice], 1)
+            lemmalist.append(lemmaobj)
+            return lemmalist
+        #this will return an even distribution, which will result in the 1st result being picked.
+        if control == 2:
+            lemmalist = lemmatizer.lookup([target])
+            lemmalist = lemmalist[0][1]
+            return lemmalist        
         shared_context_counts = dict()
         for lem in lemmas:
             lemma_context_dictionary = SKIP_LIBRARY[lem]
@@ -45,6 +58,7 @@ def compare_context(target, context):
         lemmalist.append(lemmaobj)
         return lemmalist
 
+
 tessobj = TessFile(onlyfiles[258])
 tokengenerator = iter(tessobj.read_tokens())
 tokens = new_file(tokengenerator, 2)
@@ -60,6 +74,7 @@ if os.path.isfile(latin_pos_lemmatized_sents_path):
     latin_pos_lemmatized_sents = open_pickle(latin_pos_lemmatized_sents_path)
 else:
     print('The file %s is not available in cltk_data' % file)
+
 first1000 = latin_pos_lemmatized_sents[0:1000]
 first1000tokens = []
 for sentence in first1000:
@@ -91,7 +106,7 @@ for sentence in first10:
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
-def test_lemmatization(test_tokens, answer_lemma, window_size):
+def test_lemmatization(test_tokens, answer_lemma, window_size, control = 0):
     '''Takes a sequence of tokens from the corpus and lemmatizes them using compare_context.
     Then checks against a set of 'gold standard' lemmatizations. Returns the incorrect answers.'''
     current_token = 0
@@ -106,7 +121,7 @@ def test_lemmatization(test_tokens, answer_lemma, window_size):
             #print(context)
             target = context.pop(window_size)
             #print(target, context)
-            lemmas = compare_context(target, context)
+            lemmas = compare_context(target, context, control)
             lemma = max(lemmas,key=itemgetter(1))
             # make a list of tuples containing just the token and the 2 lemmas
             results.append((target, lemma[0], answer_lemma[current_token]))
@@ -123,8 +138,8 @@ def test_lemmatization(test_tokens, answer_lemma, window_size):
     return results
 
 
-smalltest = test_lemmatization(first10tokens, first10lemmas, 2)
-bigtest = test_lemmatization(first1000tokens, first1000lemmas, 2)
+smalltest = test_lemmatization(first10tokens, first10lemmas, 2, control = 1)
+bigtest = test_lemmatization(first1000tokens, first1000lemmas, 2, control = 0)
 
 def find_errors(testobj):
     errors = [testobj[i] for i in range(0, len(testobj)) if testobj[i][1] != testobj[i][2]]

@@ -121,6 +121,9 @@ onlyfiles = [join(path, f) for f in onlyfiles]
 for filename in onlyfiles:
     print(filename)
     if '.tess' in filename:
-        read_files(filename, context_window = 4)
+        read_files(filename, context_window = 1)
 
-pickle.dump( favorite_color, open( "save.p", "wb" ) )
+relativepath = join('~/latin_lemma_disambiguation_models')
+path = expanduser(relativepath)
+pickle_file = join(path, "skip_library_1_no_sentence_boundaries.pickle")
+pickle.dump( SKIP_LIBRARY, open( pickle_file, "wb" ) )
