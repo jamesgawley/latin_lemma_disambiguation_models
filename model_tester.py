@@ -106,7 +106,18 @@ for sentence in first10:
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
-def test_lemmatization(test_tokens, answer_lemma, window_size, control = 0):
+
+def new_sentence(tokengenerator, context_window):
+    '''Takes an iterator object for the sentence being read.
+    Reads in the first context_window * 2 + 1 tokens and returns them'''
+    tokens = []
+    for i in range(0, (context_window + 1)):
+        rawtoken = next(tokengenerator)
+        tokens.append(rawtoken)
+    return tokens
+
+
+def test_lemmatization(annotated_lemmas, window_size, control = 0):
     '''Takes a sequence of tokens from the corpus and lemmatizes them using compare_context.
     Then checks against a set of 'gold standard' lemmatizations. Returns the incorrect answers.'''
     current_token = 0
@@ -114,23 +125,28 @@ def test_lemmatization(test_tokens, answer_lemma, window_size, control = 0):
     correct = 0
     trials = 0
     roughly_correct = 0
-    while current_token < len(test_tokens):
-        if current_token >= window_size and current_token <= (len(test_tokens) - window_size):
-            #print('current_token: ' + current_token)
-            context = test_tokens[(current_token - window_size):(current_token + window_size)]
-            #print(context)
-            target = context.pop(window_size)
-            #print(target, context)
-            lemmas = compare_context(target, context, control)
-            lemma = max(lemmas,key=itemgetter(1))
-            # make a list of tuples containing just the token and the 2 lemmas
-            results.append((target, lemma[0], answer_lemma[current_token]))
-            trials = trials + 1
-            if similar(lemma[0], answer_lemma[current_token]) > .7:
-                roughly_correct = roughly_correct + 1
-            if lemma[0] == answer_lemma[current_token]:
-                correct = correct + 1
-        current_token = current_token + 1
+    for sentence in annotated_lemmas:
+        test_tokens = [tup[0] for tup in sentence if 'punc' not in tup[1]]
+        answer_lemma = [tup[1] for tup in sentence if 'punc' not in tup[1]]
+        #sentence_iterator = iter(test_tokens)
+        #tokens = new_sentence(sentence_iterator, context_window)
+        while current_token < len(test_tokens):
+            if current_token >= window_size and current_token <= (len(test_tokens) - window_size):
+                #print('current_token: ' + current_token)
+                context = test_tokens[(current_token - window_size):(current_token + window_size)]
+                #print(context)
+                target = context.pop(window_size)
+                #print(target, context)
+                lemmas = compare_context(target, context, control)
+                lemma = max(lemmas,key=itemgetter(1))
+                # make a list of tuples containing just the token and the 2 lemmas
+                results.append((target, lemma[0], answer_lemma[current_token]))
+                trials = trials + 1
+                if similar(lemma[0], answer_lemma[current_token]) > .7:
+                    roughly_correct = roughly_correct + 1
+                if lemma[0] == answer_lemma[current_token]:
+                    correct = correct + 1
+            current_token = current_token + 1
     print(correct)
     print(roughly_correct)
     print(trials)
@@ -138,7 +154,7 @@ def test_lemmatization(test_tokens, answer_lemma, window_size, control = 0):
     return results
 
 
-smalltest = test_lemmatization(first10tokens, first10lemmas, 2, control = 1)
+smalltest = test_lemmatization(first10, 2, control = 1)
 bigtest = test_lemmatization(first1000tokens, first1000lemmas, 2, control = 0)
 
 def find_errors(testobj):

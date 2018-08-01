@@ -21,7 +21,7 @@ SKIP_LIBRARY = dict()
 '''Large dictionary whose keys are inflected word forms and whose values are dictionaries.
 Second-layer dictionaries describe context of word forms in corpus through counts of 
 surrounding word-forms.'''
-
+punctuation_list = ['.', '!', ';', ':', '?']
 
 def read_files(filepath, context_window):
     '''Moves through a .tess file and calls the 'next' and 'skipgram' functions as needed.
@@ -35,9 +35,11 @@ def read_files(filepath, context_window):
     tokengenerator = iter(tessobj.read_tokens())
     tokens = new_file(tokengenerator, context_window)
     stop = 0
+    clearflag = 0
+    target_position = context_window
     while stop != 1:
         #the target should be five away from the end of the file, until the end
-        target_position = len(tokens) - (context_window + 1)
+        # can't just pop the target token; we want to keep it for the next round.
         targettoken = tokens[target_position]
         #grab all the other tokens but the target
         contexttokens = [x for i, x in enumerate(tokens) if i != target_position]
@@ -46,29 +48,43 @@ def read_files(filepath, context_window):
         #prep the next token in the file
         try:
             rawtoken = next(tokengenerator)
-            cleantoken = token_cleanup(rawtoken)            
-            tokens.append(cleantoken)
-            if len(tokens) > (context_window * 2 + 1):
+            cleantoken_list = token_cleanup(rawtoken) 
+            if len(cleantoken_list) > 1 and cleantoken_list[-1] in punctuation_list:
+                #this should indicate a sentence has ended.
+                #when this happens, it's necessary to clear the list *after* this iteration.
+                clearflag = 1
+            tokens.append(cleantoken_list[0])
+            # if we've seen end-of-sentence punctuation, we need to start counting down.
+            if clearflag == 1:
+                # when this begins, the token list just received the final word.
+                tokens.pop(0)
+                while len(tokens) > context_window:
+                    # perform the usual dictionary operation, but don't add a new token.
+                    targettoken = tokens[target_position]
+                    contexttokens = [x for i, x in enumerate(tokens) if i != target_position]
+                    skipgram(targettoken, contexttokens)
+                    tokens.pop(0)
+                #initialize the next sentence
+                tokens = []
+                tokens = new_file(tokengenerator, context_window)
+                clearflag = 0
+            else:
                 tokens.pop(0)
         except StopIteration:
             #we have reached EOF. Loop through until the last token is done then quit
             #when this happens, the token list should have 11 indices, and the 'target_position'
             #index will be the sixth (i.e. :tokens[5]). Pop the first index off, leaving 10
             #indices and making the sixth index (previously the seventh) the new target.
+            tokens.pop(0)
             while len(tokens) > (context_window):
-                tokens.pop(0)
                 # This loop makes the target_position move to the end. E.g. if the context_window is 6, then
                 # as long as there are six or more indexes, make the target_position the sixth index.
-                if len(tokens) > (context_window + 1):
-                    target_position = (context_window)
-                # But if there six or fewer indexes, then the target_position is the last index.
-                else:
-                    target_position = len(tokens) - 1
                 targettoken = tokens[target_position]
                 #grab all the other tokens but the target
                 contexttokens = [x for i, x in enumerate(tokens) if i != target_position]
                 #add this context to the skipgram map
                 skipgram(targettoken, contexttokens)
+                tokens.pop(0)
             stop = 1
 
 lemmatizer = Lemmata(dictionary = 'lemmata', language = 'latin')
@@ -92,22 +108,24 @@ def skipgram(targettoken, contexttokens):
 
 def new_file(tokengenerator, context_window):
     '''Takes an iterator object for the file being read.
-    Reads in the first six tokens and returns them'''
+    Reads in the first context_window * 2 + 1 tokens and returns them'''
     tokens = []
     for i in range(0, (context_window + 1)):
         rawtoken = next(tokengenerator)
-        cleantoken = token_cleanup(rawtoken)
-        # NB: right now the code assumes that first sentence is > 5 words
-        tokens.append(cleantoken)
+        cleantoken_list = token_cleanup(rawtoken)
+        # NB: right now the code assumes that first sentence is < 2x the window + 1
+        tokens.append(cleantoken_list[0])
     return tokens
 
 jv = JVReplacer()
 word_tokenizer = WordTokenizer('latin')
 def token_cleanup(rawtoken):
+    # this cleaning algorithm is a potential area for improvement.
     rawtoken = jv.replace(rawtoken)
     rawtoken = rawtoken.lower()
     tokenlist = word_tokenizer.tokenize(rawtoken)
-    return tokenlist[0]
+    #sometimes words are split into enclitics and punctuation.
+    return tokenlist
 
 word_tokenizer = WordTokenizer('latin')
 pp = PrettyPrinter(indent=4)
@@ -121,7 +139,7 @@ onlyfiles = [join(path, f) for f in onlyfiles]
 for filename in onlyfiles:
     print(filename)
     if '.tess' in filename:
-        read_files(filename, context_window = 1)
+        read_files(filename, context_window = 2)
 
 relativepath = join('~/latin_lemma_disambiguation_models')
 path = expanduser(relativepath)
