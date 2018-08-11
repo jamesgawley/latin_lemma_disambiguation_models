@@ -3,6 +3,7 @@ for each type in the corpus. This is necessary for certain experiments involving
 lemma (in ambiguous cases), synonym, or translation for a given token-in-context during
 NLP tasks. Contributors: James Gawley.
 '''
+
 from os import listdir
 from os.path import isfile, join, expanduser
 from collections import defaultdict
@@ -17,13 +18,16 @@ from difflib import SequenceMatcher
 import pickle
 
 
-SKIP_LIBRARY = dict()
+
+
+
+
 '''Large dictionary whose keys are inflected word forms and whose values are dictionaries.
 Second-layer dictionaries describe context of word forms in corpus through counts of 
 surrounding word-forms.'''
 punctuation_list = ['.', '!', ';', ':', '?']
 
-def read_files(filepath, context_window):
+def read_files_skipgram(filepath, context_window):
     '''Moves through a .tess file and calls the 'next' and 'skipgram' functions as needed.
     Updates the SKIP_LIBRARY global object.
     Parameters
@@ -75,7 +79,11 @@ def read_files(filepath, context_window):
             #when this happens, the token list should have 11 indices, and the 'target_position'
             #index will be the sixth (i.e. :tokens[5]). Pop the first index off, leaving 10
             #indices and making the sixth index (previously the seventh) the new target.
-            tokens.pop(0)
+            # this entire loop is obsolete now that punctuation is accounted for.
+            try:
+                tokens.pop(0)
+            except IndexError:
+                pass
             while len(tokens) > (context_window):
                 # This loop makes the target_position move to the end. E.g. if the context_window is 6, then
                 # as long as there are six or more indexes, make the target_position the sixth index.
@@ -86,6 +94,27 @@ def read_files(filepath, context_window):
                 skipgram(targettoken, contexttokens)
                 tokens.pop(0)
             stop = 1
+
+
+def read_files_count(filepath):
+    tessobj = TessFile(filepath)
+    tokengenerator = iter(tessobj.read_tokens())
+    stop = 0
+    while stop != 1:
+        try:
+            rawtoken = next(tokengenerator)
+            cleantoken_list = token_cleanup(rawtoken) 
+            token = cleantoken_list[0]
+            countgram(token)
+        except StopIteration:
+            stop = 1
+
+def countgram(targettoken):
+    global COUNT_LIBRARY
+    lemmas = lemmatizer.lookup([targettoken])
+    lemmas = lemmatizer.isolate(lemmas)
+    if len(lemmas) == 1:
+        COUNT_LIBRARY[lemmas[0]] += 1
 
 lemmatizer = Lemmata(dictionary = 'lemmata', language = 'latin')
 def skipgram(targettoken, contexttokens):
@@ -105,6 +134,7 @@ def skipgram(targettoken, contexttokens):
             SKIP_LIBRARY[lemma] = defaultdict(int)
         for contextword in contexttokens:
             SKIP_LIBRARY[lemma][contextword] += 1
+            SKIP_LIBRARY[lemma]['times_seen'] += 1
 
 def new_file(tokengenerator, context_window):
     '''Takes an iterator object for the file being read.
@@ -136,10 +166,13 @@ path = expanduser(relativepath)
 onlyfiles = [f for f in listdir(path) if isfile(join(path, f)) and 'augustine' not in f and 'ambrose' not in f and 'jerome' not in f and 'tertullian' not in f and 'eugippius' not in f and 'hilary' not in f]
 onlyfiles = [join(path, f) for f in onlyfiles]
 
+SKIP_LIBRARY = dict()
+COUNT_LIBRARY = defaultdict(int)
 for filename in onlyfiles:
     print(filename)
     if '.tess' in filename:
-        read_files(filename, context_window = 2)
+        read_files_skipgram(filename, context_window = 2)
+        read_files_count(filename)
 
 relativepath = join('~/latin_lemma_disambiguation_models')
 path = expanduser(relativepath)
