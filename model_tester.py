@@ -35,6 +35,7 @@ def compare_context(target, context, control = 0, normalize = 0):
             return lemmalist        
         shared_context_counts = dict()
         if control == 3:
+            print([target, lemmas])
             all_lemmas_total = sum([SKIP_LIBRARY[lem]['times_seen'] for lem in lemmas])
             return ([(lem, (SKIP_LIBRARY[lem]['times_seen'] / all_lemmas_total)) for lem in lemmas])
         for lem in lemmas:
@@ -68,9 +69,16 @@ def compare_context(target, context, control = 0, normalize = 0):
         lemmalist.append(lemmaobj)
         return lemmalist
 
+punctuation_list = ['!', ';', ':', '?', '-', '–', '&', '*', '(', ')', '[', ']', ',', '"', '\'']
 def compare_count(target):
-    lemmas = lemmatizer.lookup([target])
-    lemmas = lemmatizer.isolate(lemmas)
+    if target in punctuation_list:
+        lemmalist = [('punc', 1)]
+        return lemmalist
+    if target == 'ne':
+        lemmalist = [('ne', 1)]
+        return lemmalist
+    lemmalist = lemmatizer.lookup([target])
+    lemmas = lemmatizer.isolate(lemmalist)
     if len(lemmas) > 1:
         all_lemmas_total = sum([COUNT_LIBRARY[l] for l in lemmas])
         try:
@@ -82,8 +90,8 @@ def compare_count(target):
         lemmalist = []
         lemmaobj = (lemmas[0], 1)
         lemmalist.append(lemmaobj)
-        return lemmalist        
-
+        return lemmalist
+    
 tessobj = TessFile(onlyfiles[258])
 tokengenerator = iter(tessobj.read_tokens())
 tokens = new_file(tokengenerator, 2)
@@ -104,13 +112,11 @@ first1000 = latin_pos_lemmatized_sents[0:1000]
 first1000tokens = []
 for sentence in first1000:
     for tup in sentence:
-        if 'punc' not in tup[1]:
             first1000tokens.append(tup[0])
 
 first1000lemmas = []
 for sentence in first1000:
     for tup in sentence:
-        if 'punc' not in tup[1]:
             first1000lemmas.append(tup[1])
 
 first10 = latin_pos_lemmatized_sents[0:10]
@@ -166,10 +172,12 @@ def test_lemmatization(annotated_lemmas, window_size, control = 0, normalize = 0
                 #print(context)
                 target = context.pop(window_size)
                 #print(target, context)
-            if current_token >= (len(test_tokens) - window_size) and current_token <= (len(test_tokens) -1):
-                context = test_tokens[(current_token - window_size):(len(test_tokens) - 1)]
-                target = context.pop(window_size)
+            #if current_token >= (len(test_tokens) - window_size) and current_token <= (len(test_tokens) -1):
+            #    context = test_tokens[(current_token - window_size):(len(test_tokens) - 1)]
+            #    target = context.pop(window_size)
             lemmas = compare_context(target, context, control, normalize)
+            #print(target)
+            #print(lemmas)
             lemma = max(lemmas,key=itemgetter(1))
             # make a list of tuples containing just the token and the 2 lemmas
             results.append((target, lemma[0], answer_lemma[current_token]))
@@ -214,8 +222,32 @@ def test_count_based_lemmatization(annotated_lemmas):
     #print (correct + ' correct lemmatizations for ' + trials + ' trials. ' + (correct / trials) + ' accuracy.')
     return results
 
+
+
+def test_count_library(first1000tokens, first1000lemmas):
+    trials = 0
+    correct = 0
+    errors = []
+    for position in range(0, (len(first1000tokens)-1)):
+        lemmalist = compare_count(first1000tokens[position])
+        lemma = max(lemmalist,key=itemgetter(1))
+        if len(lemmalist) > 1:
+            trials = trials + 1
+            if lemma[0] == first1000lemmas[position] or lemma[0] == 'punc':
+                correct = correct + 1
+            else:
+                errors.append((first1000tokens[position], lemma[0], first1000lemmas[position]))
+    print(correct)
+    print(trials)
+    print(len(first1000lemmas))
+    rate = (len(first1000lemmas) - trials + correct) / len(first1000lemmas)
+    print(rate)
+    return errors
+
+
+
 smalltest = test_lemmatization(first10, 2, control = 0)
-bigtest = test_lemmatization(first1000, 2, control = 0)
+bigtest = test_lemmatization(first1000, 2, control = 3)
 counttest = test_count_based_lemmatization(first1000)
 
 def find_errors(testobj):

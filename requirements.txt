@@ -1,0 +1,2 @@
+tesserae==0.1a1
+cltk==0.1.96
